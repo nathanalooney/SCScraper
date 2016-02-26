@@ -3,8 +3,8 @@ const ffmetadata = require('request');
 const fs = require('fs');
 
 client_id = 'client_id=0b6acabf19f39d3eab148ff23b8cd57e'
-song_url = 'https://soundcloud.com/lnymsc'
-request.get('http://api.soundcloud.com/resolve?url='+song_url+'&'+client_id, function(err, response, data) {
+user_url = process.argv[2];
+request.get('http://api.soundcloud.com/resolve?url='+user_url+'&'+client_id, function(err, response, data) {
 	if (err) {
 		console.log(err);
 	} else {
@@ -20,21 +20,34 @@ var getFavorites = function(id) {
 		} else {
 			var response_object = JSON.parse(data);
 			var favorites = response_object.collection;
-			var next_href = favorites.next_href;
-			console.log(favorites.length);
-			startDownloads(favorites);
+			var next_href = response_object.next_href;
+			downloadSongs(favorites, next_href);
 		}
 	});
 }
 
-var startDownloads = function(favorites) {
+var downloadSongs = function(favorites, href) {
 	var count = 0;
 	var downloadInterval = setInterval(function() {
 		if (favorites[count].stream_url) {
-			request.get(favorites[count].stream_url+'?'+client_id).pipe(fs.createWriteStream('songs/'+favorites[count].title+'.mp3'));			
+			request.get(favorites[count].stream_url+'?'+client_id).pipe(fs.createWriteStream('songs/'+favorites[count].title.replace(/\/|\\/g, '')+'.mp3'));			
 		}
 		count += 1;
-		if (count == favorites.length) clearInterval(downloadInterval);
+		if (count == favorites.length) {
+			clearInterval(downloadInterval);
+			request.get(href, function(err, response, data) {
+				if (err) {
+					console.log(err);
+				} else {
+					var response_object = JSON.parse(data);
+					var favorites = response_object.collection;
+					var next_href = response_object.next_href;
+					downloadSongs(favorites, next_href);			
+				}
+			});
+		}
 	}, 1000);
-
 }
+
+
+
